@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beatbox Creator (Online)</title>
+    <title>Beatbox Creator Final</title>
     
     <style>
-        /* [Seu CSS foi mantido o mesmo, mas omitido aqui por brevidade. Apenas as alterações mais importantes são mostradas abaixo] */
+        /* RESET BÁSICO E LAYOUT MOBILE */
         body {
-            /* ... (Seu CSS anterior) */
+            margin: 0;
+            font-family: 'Arial', sans-serif;
             background-color: #121212;
             color: white;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Centraliza verticalmente o game-container */
+            justify-content: center; /* Centraliza o game-container */
             align-items: center;
         }
-        
+
         #start-screen {
             position: fixed;
             top: 0;
@@ -47,9 +48,8 @@
         #start-button:hover {
             background-color: #00cc88;
         }
-        
+
         #game-container {
-            /* ... (Seu CSS anterior) */
             width: 100%;
             max-width: 500px;
             min-height: 100vh;
@@ -59,8 +59,104 @@
             flex-direction: column;
             text-align: center;
         }
+
+        h1 {
+            padding: 15px 0;
+            font-size: 1.5em;
+            color: #00ff99;
+            margin: 0;
+            border-bottom: 1px solid #333;
+        }
         
-        /* O resto do seu CSS de layout (slot, palette, etc.) continua o mesmo */
+        /* 👥 ÁREA DOS BONHOS (TOPO) */
+        #character-area {
+            flex-grow: 1;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 10px 40px;
+        }
+
+        .slot {
+            width: 70px;
+            height: 70px;
+            margin: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border: 2px dashed #555;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 30px;
+            position: relative;
+        }
+
+        .slot:not(.active)::before {
+            content: '+';
+            font-size: 20px;
+            opacity: 0.5;
+            color: white;
+        }
+
+        .slot.drag-over {
+            border-color: #00ff99;
+            background-color: rgba(0, 255, 153, 0.2);
+        }
+
+        /* Slots com som */
+        .slot.active {
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 255, 153, 0.8);
+            animation: pulse 1s infinite alternate;
+        }
+        
+        .slot.beat { background-color: #e74c3c; }
+        .slot.voice { background-color: #3498db; }
+        .slot.effect { background-color: #f1c40f; }
+
+        /* 🔊 PALETA DE SONS (INFERIOR) */
+        #sound-palette {
+            width: 100%;
+            padding: 10px 0;
+            background-color: #2b2b2b;
+            border-top: 1px solid #444;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 -5px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .sound-category {
+            width: 95%;
+            margin-bottom: 5px;
+            padding: 5px 0;
+            text-align: left;
+        }
+        
+        .sound-item {
+            display: inline-block;
+            padding: 8px 15px;
+            margin: 4px;
+            border-radius: 5px;
+            cursor: grab;
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #121212;
+            transition: transform 0.1s;
+        }
+        
+        .sound-item.beat { background-color: #e74c3c; }
+        .sound-item.voice { background-color: #3498db; }
+        .sound-item.effect { background-color: #f1c40f; }
+
+        @keyframes pulse {
+            from { transform: scale(1.0); }
+            to { transform: scale(1.05); }
+        }
     </style>
 </head>
 <body>
@@ -101,15 +197,16 @@
     </div>
     
     <script>
-        let audioContext = null; // Inicializado como null
+        let audioContext = null; 
         const activeLoops = {};
         
-        // --- LINKS DE ÁUDIO ONLINE (mantidos os mesmos) ---
+        // --- LINKS DE ÁUDIO ONLINE ---
+        // Links de demonstração (podem parar de funcionar no futuro)
         const audioSources = {
             beat1: 'https://cdn.rawgit.com/cjau/js-drum-kit/master/audio/kick.wav',
             beat2: 'https://cdn.rawgit.com/cjau/js-drum-kit/master/audio/snare.wav',
-            voice1: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-            voice2: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+            voice1: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', 
+            voice2: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', 
             effect1: 'https://cdn.rawgit.com/cjau/js-drum-kit/master/audio/clap.wav',
         };
 
@@ -118,13 +215,12 @@
             voice: '🗣️',
             effect: '💫'
         };
-        
-        // NOVO: FUNÇÃO DE INICIALIZAÇÃO DO ÁUDIO
+
+        // FUNÇÃO PRINCIPAL PARA ATIVAR O AUDIO CONTEXT
         function initAudio() {
-            // Cria o AudioContext somente após a interação do usuário
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioContext) return; 
             
-            // Resume/Ativa o contexto (importante para navegadores móveis)
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
             if (audioContext.state === 'suspended') {
                 audioContext.resume();
             }
@@ -132,18 +228,23 @@
             // Esconde a tela de início e mostra o jogo
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('game-container').style.display = 'flex';
+            
+            // Remove os listeners de ativação
+            document.getElementById('start-button').removeEventListener('click', initAudio);
+            document.removeEventListener('touchstart', initAudio); 
         }
 
+        // Adiciona listeners para inicializar o áudio (prioridade no botão)
+        document.getElementById('start-button').addEventListener('click', initAudio);
+        document.addEventListener('touchstart', initAudio, {once: true});
+
+
         // ----------------------------------------------------
-        // FUNÇÕES DE ÁUDIO (Usa o audioContext já inicializado)
+        // FUNÇÕES DE ÁUDIO
         // ----------------------------------------------------
 
         async function loadAudio(url) {
-            // Verifica se o audioContext foi inicializado
-            if (!audioContext) {
-                console.error("AudioContext não está ativo. Clique no botão de início.");
-                return;
-            }
+            if (!audioContext) { return; }
             const response = await fetch(url);
             if (!response.ok) {
                 console.error(`Falha ao carregar o recurso: ${url}`);
@@ -154,13 +255,11 @@
         }
 
         function startLoop(buffer, slotId, category) {
-            if (!audioContext || audioContext.state === 'suspended') {
-                 // Caso tente tocar antes de iniciar (fallback de segurança)
-                 initAudio(); 
-            }
+            if (!audioContext) return;
             
             const loopDuration = 4; 
             const currentTime = audioContext.currentTime;
+            // Sincroniza com o próximo beat (múltiplo de 4)
             const nextStartTime = Math.ceil(currentTime / loopDuration) * loopDuration;
 
             const source = audioContext.createBufferSource();
@@ -181,13 +280,10 @@
         }
 
         // ----------------------------------------------------
-        // LÓGICA DO JOGO
+        // LÓGICA DO JOGO (DRAG & DROP)
         // ----------------------------------------------------
         
         document.addEventListener('DOMContentLoaded', () => {
-            // Adiciona o listener para o botão de início
-            document.getElementById('start-button').addEventListener('click', initAudio);
-
             const soundItems = document.querySelectorAll('.sound-item');
             const slots = document.querySelectorAll('.slot');
             let draggedSoundId = null;
@@ -220,7 +316,10 @@
                     slot.classList.remove('drag-over');
 
                     const currentSoundId = e.dataTransfer.getData('text/plain') || draggedSoundId;
-                    if (!currentSoundId || !audioContext) return; // Retorna se não houver áudioContext ativo
+                    if (!currentSoundId || !audioContext) {
+                        alert("O áudio ainda não foi ativado. Por favor, clique em 'INICIAR COMPOSIÇÃO'.");
+                        return;
+                    }
 
                     stopLoop(slotId); 
 
