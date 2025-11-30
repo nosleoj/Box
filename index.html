@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beatbox Creator Final (Auto Play)</title>
+    <title>Beatbox Creator Final (Funcionando)</title>
     
     <style>
         /* RESET BÁSICO E LAYOUT MOBILE */
@@ -58,6 +58,8 @@
             display: flex;
             flex-direction: column;
             text-align: center;
+            /* Garante que o jogo esteja oculto por padrão no CSS */
+            display: none; 
         }
 
         h1 {
@@ -167,7 +169,7 @@
         <button id="start-button">INICIAR COMPOSIÇÃO 🚀</button>
     </div>
     
-    <div id="game-container" style="display: none;">
+    <div id="game-container"> 
         <h1>🎶 Beatbox Mobile Online</h1>
         <p style="font-size: 0.8em; color: #aaa; margin-top: 0;">Arraste e Solte os loops! Clique em um slot para remover.</p>
         
@@ -201,10 +203,8 @@
         const activeLoops = {};
         
         // --- LINKS DE ÁUDIO ONLINE ---
-        // ATENÇÃO: beat1 está usando um link de teste funcional (relincho de cavalo).
-        // SUBSTITUA ESTES LINKS POR ARQUIVOS MP3/WAV PUBLICAMENTE ACESSÍVEIS.
         const audioSources = {
-            beat1: 'https://www.w3schools.com/html/horse.mp3', // Link funcional de teste
+            beat1: 'https://www.w3schools.com/html/horse.mp3', // Link funcional de teste (relincho)
             beat2: 'https://cdn.rawgit.com/cjau/js-drum-kit/master/audio/snare.wav',
             voice1: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', 
             voice2: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', 
@@ -217,7 +217,7 @@
             effect: '💫'
         };
 
-        // FUNÇÃO PRINCIPAL PARA ATIVAR O AUDIO CONTEXT
+        // FUNÇÃO PRINCIPAL PARA ATIVAR O AUDIO CONTEXT E MUDAR DE TELA
         function initAudio() {
             if (audioContext) return; 
             
@@ -226,7 +226,7 @@
                 audioContext.resume();
             }
 
-            // Esconde a tela de início e mostra o jogo
+            // Esconde a tela de início e MOSTRA o jogo (display: flex)
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('game-container').style.display = 'flex';
             
@@ -234,11 +234,6 @@
             document.getElementById('start-button').removeEventListener('click', initAudio);
             document.removeEventListener('touchstart', initAudio); 
         }
-
-        // Adiciona listeners para inicializar o áudio ao clicar no botão ou tocar na tela
-        document.getElementById('start-button').addEventListener('click', initAudio);
-        document.addEventListener('touchstart', initAudio, {once: true});
-
 
         // ----------------------------------------------------
         // FUNÇÕES DE ÁUDIO
@@ -259,8 +254,6 @@
             if (!audioContext) return;
             
             const currentTime = audioContext.currentTime;
-            // ALTERAÇÃO CRÍTICA: O áudio começa AGORA (currentTime), sem sincronização.
-            // Para fazer o loop, ele tocará o buffer e o repetirá imediatamente.
 
             const source = audioContext.createBufferSource();
             source.buffer = buffer;
@@ -284,6 +277,10 @@
         // ----------------------------------------------------
         
         document.addEventListener('DOMContentLoaded', () => {
+            // Adiciona listeners para inicializar o áudio ao CLICAR no botão ou tocar na tela
+            document.getElementById('start-button').addEventListener('click', initAudio);
+            document.addEventListener('touchstart', initAudio, {once: true});
+            
             const soundItems = document.querySelectorAll('.sound-item');
             const slots = document.querySelectorAll('.slot');
             let draggedSoundId = null;
@@ -335,7 +332,7 @@
                         slot.setAttribute('data-current-sound', currentSoundId);
 
                     } catch (error) {
-                        console.error('Erro fatal no carregamento do áudio:", error);
+                        console.error('Erro fatal no carregamento do áudio:', error);
                     }
 
                     draggedSoundId = null;
