@@ -1,14 +1,257 @@
-aggedSoundCategory = null;
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beatbox Creator (Online)</title>
+    
+    <style>
+        /* [Seu CSS foi mantido o mesmo, mas omitido aqui por brevidade. Apenas as alterações mais importantes são mostradas abaixo] */
+        body {
+            /* ... (Seu CSS anterior) */
+            background-color: #121212;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Centraliza verticalmente o game-container */
+            align-items: center;
+        }
+        
+        #start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #start-button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            background-color: #00ff99;
+            color: #121212;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 255, 153, 0.5);
+            transition: background-color 0.2s;
+        }
+
+        #start-button:hover {
+            background-color: #00cc88;
+        }
+        
+        #game-container {
+            /* ... (Seu CSS anterior) */
+            width: 100%;
+            max-width: 500px;
+            min-height: 100vh;
+            background-color: #1f1f1f;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        /* O resto do seu CSS de layout (slot, palette, etc.) continua o mesmo */
+    </style>
+</head>
+<body>
+    
+    <div id="start-screen">
+        <h2>Bem-vindo ao Beatbox Web!</h2>
+        <p>Clique abaixo para carregar o jogo e ativar o áudio.</p>
+        <button id="start-button">INICIAR COMPOSIÇÃO 🚀</button>
+    </div>
+    
+    <div id="game-container" style="display: none;">
+        <h1>🎶 Beatbox Mobile Online</h1>
+        <p style="font-size: 0.8em; color: #aaa; margin-top: 0;">Arraste e Solte os loops! Clique em um slot para remover.</p>
+        
+        <div id="character-area">
+            <div class="slot" data-slot-id="1"></div>
+            <div class="slot" data-slot-id="2"></div>
+            <div class="slot" data-slot-id="3"></div>
+            <div class="slot" data-slot-id="4"></div>
+            <div class="slot" data-slot-id="5"></div>
+        </div>
+        
+        <div id="sound-palette">
+            <div class="sound-category" id="beats">
+                <div class="sound-item beat" data-sound-id="beat1" data-category="beat" draggable="true">🥁 BASE 1</div>
+                <div class="sound-item beat" data-sound-id="beat2" data-category="beat" draggable="true">🥁 BASE 2</div>
+            </div>
+
+            <div class="sound-category" id="voices">
+                <div class="sound-item voice" data-sound-id="voice1" data-category="voice" draggable="true">🎤 VOCAL A</div>
+                <div class="sound-item voice" data-sound-id="voice2" data-category="voice" draggable="true">🎤 VOCAL B</div>
+            </div>
+
+            <div class="sound-category" id="effects">
+                <div class="sound-item effect" data-sound-id="effect1" data-category="effect" draggable="true">✨ FX X</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let audioContext = null; // Inicializado como null
+        const activeLoops = {};
+        
+        // --- LINKS DE ÁUDIO ONLINE (mantidos os mesmos) ---
+        const audioSources = {
+            beat1: 'https://cdn.rawgit.com/cjau/js-drum-kit/master/audio/kick.wav',
+            beat2: 'https://cdn.rawgit.com/cjau/js-drum-kit/master/audio/snare.wav',
+            voice1: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+            voice2: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+            effect1: 'https://cdn.rawgit.com/cjau/js-drum-kit/master/audio/clap.wav',
+        };
+
+        const slotEmojis = {
+            beat: '🕺',
+            voice: '🗣️',
+            effect: '💫'
+        };
+        
+        // NOVO: FUNÇÃO DE INICIALIZAÇÃO DO ÁUDIO
+        function initAudio() {
+            // Cria o AudioContext somente após a interação do usuário
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Resume/Ativa o contexto (importante para navegadores móveis)
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            // Esconde a tela de início e mostra o jogo
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-container').style.display = 'flex';
+        }
+
+        // ----------------------------------------------------
+        // FUNÇÕES DE ÁUDIO (Usa o audioContext já inicializado)
+        // ----------------------------------------------------
+
+        async function loadAudio(url) {
+            // Verifica se o audioContext foi inicializado
+            if (!audioContext) {
+                console.error("AudioContext não está ativo. Clique no botão de início.");
+                return;
+            }
+            const response = await fetch(url);
+            if (!response.ok) {
+                console.error(`Falha ao carregar o recurso: ${url}`);
+                return audioContext.createBuffer(1, 1, audioContext.sampleRate);
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            return audioContext.decodeAudioData(arrayBuffer);
+        }
+
+        function startLoop(buffer, slotId, category) {
+            if (!audioContext || audioContext.state === 'suspended') {
+                 // Caso tente tocar antes de iniciar (fallback de segurança)
+                 initAudio(); 
+            }
+            
+            const loopDuration = 4; 
+            const currentTime = audioContext.currentTime;
+            const nextStartTime = Math.ceil(currentTime / loopDuration) * loopDuration;
+
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true;
+            source.connect(audioContext.destination);
+            
+            source.start(nextStartTime); 
+
+            activeLoops[slotId] = { source: source, category: category, buffer: buffer };
+        }
+
+        function stopLoop(slotId) {
+            if (activeLoops[slotId]) {
+                activeLoops[slotId].source.stop(audioContext.currentTime); 
+                delete activeLoops[slotId];
+            }
+        }
+
+        // ----------------------------------------------------
+        // LÓGICA DO JOGO
+        // ----------------------------------------------------
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Adiciona o listener para o botão de início
+            document.getElementById('start-button').addEventListener('click', initAudio);
+
+            const soundItems = document.querySelectorAll('.sound-item');
+            const slots = document.querySelectorAll('.slot');
+            let draggedSoundId = null;
+            let draggedSoundCategory = null;
+
+            // Lógica de arrastar
+            soundItems.forEach(item => {
+                item.addEventListener('dragstart', (e) => {
+                    draggedSoundId = e.target.dataset.soundId;
+                    draggedSoundCategory = e.target.dataset.category;
+                    e.dataTransfer.setData('text/plain', draggedSoundId);
+                });
             });
 
-            // Lógica ao clicar em um slot ativo (para remover o som)
-            slot.addEventListener('click', () => {
-                if (slot.classList.contains('active')) {
-                    stopLoop(slotId);
-                    slot.className = 'slot';
-                    slot.textContent = '';
-                    slot.removeAttribute('data-current-sound');
-                }
+            // Lógica de Soltar
+            slots.forEach(slot => {
+                const slotId = slot.dataset.slotId;
+                
+                slot.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    slot.classList.add('drag-over');
+                });
+
+                slot.addEventListener('dragleave', (e) => {
+                    slot.classList.remove('drag-over');
+                });
+
+                slot.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    slot.classList.remove('drag-over');
+
+                    const currentSoundId = e.dataTransfer.getData('text/plain') || draggedSoundId;
+                    if (!currentSoundId || !audioContext) return; // Retorna se não houver áudioContext ativo
+
+                    stopLoop(slotId); 
+
+                    const audioUrl = audioSources[currentSoundId];
+                    if (!audioUrl) return console.error("ID de som não encontrado.");
+
+                    try {
+                        const buffer = await loadAudio(audioUrl);
+                        startLoop(buffer, slotId, draggedSoundCategory);
+                        
+                        slot.className = `slot active ${draggedSoundCategory}`; 
+                        slot.textContent = slotEmojis[draggedSoundCategory] || '🎶';
+                        slot.setAttribute('data-current-sound', currentSoundId);
+
+                    } catch (error) {
+                        console.error('Erro fatal no carregamento do áudio:', error);
+                    }
+
+                    draggedSoundId = null;
+                    draggedSoundCategory = null;
+                });
+
+                // Lógica ao clicar em um slot ativo (para remover o som)
+                slot.addEventListener('click', () => {
+                    if (slot.classList.contains('active')) {
+                        stopLoop(slotId);
+                        slot.className = 'slot';
+                        slot.textContent = '';
+                        slot.removeAttribute('data-current-sound');
+                    }
+                });
             });
         });
     </script>
