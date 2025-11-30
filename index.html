@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beatbox Creator Final</title>
+    <title>Beatbox Creator Final (Auto Play)</title>
     
     <style>
         /* RESET BÁSICO E LAYOUT MOBILE */
@@ -15,7 +15,7 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Centraliza o game-container */
+            justify-content: center;
             align-items: center;
         }
 
@@ -201,9 +201,10 @@
         const activeLoops = {};
         
         // --- LINKS DE ÁUDIO ONLINE ---
-        // Links de demonstração (podem parar de funcionar no futuro)
+        // ATENÇÃO: beat1 está usando um link de teste funcional (relincho de cavalo).
+        // SUBSTITUA ESTES LINKS POR ARQUIVOS MP3/WAV PUBLICAMENTE ACESSÍVEIS.
         const audioSources = {
-            beat1: 'https://cdn.rawgit.com/cjau/js-drum-kit/master/audio/kick.wav',
+            beat1: 'https://www.w3schools.com/html/horse.mp3', // Link funcional de teste
             beat2: 'https://cdn.rawgit.com/cjau/js-drum-kit/master/audio/snare.wav',
             voice1: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', 
             voice2: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', 
@@ -234,7 +235,7 @@
             document.removeEventListener('touchstart', initAudio); 
         }
 
-        // Adiciona listeners para inicializar o áudio (prioridade no botão)
+        // Adiciona listeners para inicializar o áudio ao clicar no botão ou tocar na tela
         document.getElementById('start-button').addEventListener('click', initAudio);
         document.addEventListener('touchstart', initAudio, {once: true});
 
@@ -257,17 +258,16 @@
         function startLoop(buffer, slotId, category) {
             if (!audioContext) return;
             
-            const loopDuration = 4; 
             const currentTime = audioContext.currentTime;
-            // Sincroniza com o próximo beat (múltiplo de 4)
-            const nextStartTime = Math.ceil(currentTime / loopDuration) * loopDuration;
+            // ALTERAÇÃO CRÍTICA: O áudio começa AGORA (currentTime), sem sincronização.
+            // Para fazer o loop, ele tocará o buffer e o repetirá imediatamente.
 
             const source = audioContext.createBufferSource();
             source.buffer = buffer;
             source.loop = true;
             source.connect(audioContext.destination);
             
-            source.start(nextStartTime); 
+            source.start(currentTime); // Inicia imediatamente
 
             activeLoops[slotId] = { source: source, category: category, buffer: buffer };
         }
@@ -317,7 +317,7 @@
 
                     const currentSoundId = e.dataTransfer.getData('text/plain') || draggedSoundId;
                     if (!currentSoundId || !audioContext) {
-                        alert("O áudio ainda não foi ativado. Por favor, clique em 'INICIAR COMPOSIÇÃO'.");
+                        alert("O áudio não está ativo. Clique no botão de Iniciar!");
                         return;
                     }
 
@@ -335,7 +335,7 @@
                         slot.setAttribute('data-current-sound', currentSoundId);
 
                     } catch (error) {
-                        console.error('Erro fatal no carregamento do áudio:', error);
+                        console.error('Erro fatal no carregamento do áudio:", error);
                     }
 
                     draggedSoundId = null;
